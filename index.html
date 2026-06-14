@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>マイTV番組表</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    :root{
+      --bg:#0a0d07;--bg2:#111508;--card:#182010;--card2:#1e2b14;
+      --accent:#4ade80;--accent2:#22c55e;--gold:#fbbf24;
+      --text:#e8f0d8;--muted:#6a8a5a;--border:#1e2d10;
+      --red:#ef4444;--blue:#60a5fa;--purple:#c084fc;--orange:#fb923c;
+    }
+    body{font-family:'Segoe UI','Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    header{background:linear-gradient(135deg,#050701,#0d1408);border-bottom:2px solid var(--accent);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+    .header-left{display:flex;align-items:center;gap:12px;}
+    .app-badge{background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:8px;padding:7px 10px;font-size:1.2rem;line-height:1;}
+    .header-title h1{font-size:1rem;font-weight:800;}
+    .header-title p{font-size:.65rem;color:var(--muted);margin-top:1px;}
+    .updated-label{font-size:.65rem;color:var(--muted);}
+
+    .main{max-width:800px;margin:0 auto;padding:16px;}
+
+    /* Filter bar */
+    .filter-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;}
+    .filter-btn{padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--card);color:var(--muted);font-size:.72rem;font-weight:700;cursor:pointer;transition:all .12s;white-space:nowrap;}
+    .filter-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(74,222,128,.08);}
+    .filter-btn[data-cat='くりぃむしちゅー'].active{border-color:#f97316;color:#f97316;background:rgba(249,115,22,.08);}
+    .filter-btn[data-cat='ミセスグリーンアップル'].active{border-color:#c084fc;color:#c084fc;background:rgba(192,132,252,.08);}
+    .filter-btn[data-cat='サッカー日本代表'].active{border-color:#60a5fa;color:#60a5fa;background:rgba(96,165,250,.08);}
+    .filter-btn[data-cat='歌番組'].active{border-color:#f472b6;color:#f472b6;background:rgba(244,114,182,.08);}
+    .filter-btn[data-cat='お笑いネタ番組'].active{border-color:#fbbf24;color:#fbbf24;background:rgba(251,191,36,.08);}
+
+    /* Day group */
+    .day-group{margin-bottom:20px;animation:fadeIn .3s ease;}
+    .day-header{font-size:.75rem;font-weight:800;color:var(--muted);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:7px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
+    .day-header .day-cnt{font-size:.65rem;color:var(--muted);font-weight:400;}
+
+    /* Program card */
+    .prog-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;transition:border-color .12s;}
+    .prog-card:hover{border-color:var(--accent);}
+    .prog-cat-bar{width:3px;border-radius:2px;flex-shrink:0;align-self:stretch;min-height:40px;}
+    .prog-cat-bar.くりぃむしちゅー{background:#f97316;}
+    .prog-cat-bar.ミセスグリーンアップル{background:#c084fc;}
+    .prog-cat-bar.サッカー日本代表{background:#60a5fa;}
+    .prog-cat-bar.歌番組{background:#f472b6;}
+    .prog-cat-bar.お笑いネタ番組{background:#fbbf24;}
+    .prog-info{flex:1;min-width:0;}
+    .prog-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;}
+    .prog-time{font-size:.72rem;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;min-width:40px;}
+    .prog-channel{font-size:.62rem;background:var(--card2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;color:var(--muted);}
+    .prog-category{font-size:.6rem;border-radius:4px;padding:1px 6px;font-weight:700;}
+    .prog-category.くりぃむしちゅー{background:rgba(249,115,22,.15);color:#f97316;}
+    .prog-category.ミセスグリーンアップル{background:rgba(192,132,252,.15);color:#c084fc;}
+    .prog-category.サッカー日本代表{background:rgba(96,165,250,.15);color:#60a5fa;}
+    .prog-category.歌番組{background:rgba(244,114,182,.15);color:#f472b6;}
+    .prog-category.お笑いネタ番組{background:rgba(251,191,36,.15);color:#fbbf24;}
+    .prog-title{font-size:.85rem;font-weight:700;line-height:1.4;margin-bottom:3px;}
+    .prog-desc{font-size:.72rem;color:var(--muted);line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+    .prog-link{display:inline-flex;align-items:center;gap:3px;margin-top:5px;color:var(--accent);font-size:.65rem;text-decoration:none;opacity:.7;}
+    .prog-link:hover{opacity:1;}
+
+    .empty-msg{text-align:center;padding:50px;color:var(--muted);}
+    .loading{text-align:center;padding:60px;color:var(--muted);font-size:.85rem;}
+    .loading-spin{display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:8px;}
+
+    .summary-bar{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px;margin-bottom:16px;}
+    .summary-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 10px;text-align:center;}
+    .summary-item .cnt{font-size:1.3rem;font-weight:900;line-height:1;}
+    .summary-item .lbl{font-size:.58rem;color:var(--muted);margin-top:3px;line-height:1.3;}
+    .summary-item.くりぃむしちゅー .cnt{color:#f97316;}
+    .summary-item.ミセスグリーンアップル .cnt{color:#c084fc;}
+    .summary-item.サッカー日本代表 .cnt{color:#60a5fa;}
+    .summary-item.歌番組 .cnt{color:#f472b6;}
+    .summary-item.お笑いネタ番組 .cnt{color:#fbbf24;}
+
+    .no-data-box{background:var(--card);border:1px dashed var(--border);border-radius:12px;padding:30px;text-align:center;color:var(--muted);font-size:.82rem;line-height:1.8;}
+    .no-data-box code{background:var(--bg2);padding:2px 6px;border-radius:4px;font-size:.75rem;color:var(--text);}
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="app-badge">📺</div>
+    <div class="header-title">
+      <h1>マイTV番組表</h1>
+      <p>今週のお気に入り番組チェッカー</p>
+    </div>
+  </div>
+  <div class="updated-label" id="updated-label">-</div>
+</header>
+
+<div class="main">
+
+  <!-- Category filters -->
+  <div class="filter-bar" id="filter-bar">
+    <button class="filter-btn active" data-cat="ALL" onclick="setFilter('ALL')">すべて</button>
+    <button class="filter-btn" data-cat="くりぃむしちゅー" onclick="setFilter('くりぃむしちゅー')">🎭 くりぃむ</button>
+    <button class="filter-btn" data-cat="ミセスグリーンアップル" onclick="setFilter('ミセスグリーンアップル')">🎵 ミセス</button>
+    <button class="filter-btn" data-cat="サッカー日本代表" onclick="setFilter('サッカー日本代表')">⚽ サッカー日本代表</button>
+    <button class="filter-btn" data-cat="歌番組" onclick="setFilter('歌番組')">🎤 歌番組</button>
+    <button class="filter-btn" data-cat="お笑いネタ番組" onclick="setFilter('お笑いネタ番組')">😂 お笑い</button>
+  </div>
+
+  <!-- Summary -->
+  <div class="summary-bar" id="summary-bar"></div>
+
+  <!-- Content -->
+  <div id="content-wrap"><div class="loading"><span class="loading-spin"></span>番組データを読み込み中...</div></div>
+
+</div>
+
+<script>
+var ALL_PROGRAMS = [];
+var CURRENT_FILTER = 'ALL';
+
+function setFilter(cat) {
+  CURRENT_FILTER = cat;
+  document.querySelectorAll('.filter-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.cat === cat);
+  });
+  render();
+}
+
+function dayLabel(dateRaw) {
+  if (!dateRaw || dateRaw.length < 8) return dateRaw || '';
+  var y = dateRaw.slice(0,4), m = dateRaw.slice(4,6), d = dateRaw.slice(6,8);
+  var dt = new Date(parseInt(y), parseInt(m)-1, parseInt(d));
+  var days = ['日','月','火','水','木','金','土'];
+  return m + '/' + d + '（' + days[dt.getDay()] + '）';
+}
+
+function isToday(dateRaw) {
+  var now = new Date();
+  var today = now.getFullYear() + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2);
+  return dateRaw === today;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function render() {
+  var filtered = CURRENT_FILTER === 'ALL'
+    ? ALL_PROGRAMS
+    : ALL_PROGRAMS.filter(function(p) { return p.category === CURRENT_FILTER; });
+
+  if (!filtered.length) {
+    document.getElementById('content-wrap').innerHTML =
+      '<div class="empty-msg">この期間、該当番組はありません。<br><small>次の更新後に再確認してください。</small></div>';
+    return;
+  }
+
+  // Group by date
+  var byDate = {};
+  filtered.forEach(function(p) {
+    if (!byDate[p.date_raw]) byDate[p.date_raw] = [];
+    byDate[p.date_raw].push(p);
+  });
+
+  var html = '';
+  Object.keys(byDate).sort().forEach(function(dateRaw) {
+    var progs = byDate[dateRaw];
+    var label = dayLabel(dateRaw);
+    var todayMark = isToday(dateRaw) ? ' <span style="color:var(--accent);font-size:.65rem;">● 今日</span>' : '';
+    html += '<div class="day-group">' +
+      '<div class="day-header">' + label + todayMark + '<span class="day-cnt">' + progs.length + '件</span></div>';
+
+    progs.forEach(function(p) {
+      var cat = escHtml(p.category);
+      html += '<div class="prog-card">' +
+        '<div class="prog-cat-bar ' + cat + '"></div>' +
+        '<div class="prog-info">' +
+          '<div class="prog-meta">' +
+            (p.time ? '<span class="prog-time">' + escHtml(p.time) + '</span>' : '') +
+            (p.channel ? '<span class="prog-channel">' + escHtml(p.channel) + '</span>' : '') +
+            '<span class="prog-category ' + cat + '">' + cat + '</span>' +
+          '</div>' +
+          '<div class="prog-title">' + escHtml(p.title) + '</div>' +
+          (p.desc ? '<div class="prog-desc">' + escHtml(p.desc) + '</div>' : '') +
+          (p.url ? '<a class="prog-link" href="' + escHtml(p.url) + '" target="_blank" rel="noopener">詳細 →</a>' : '') +
+        '</div></div>';
+    });
+    html += '</div>';
+  });
+
+  document.getElementById('content-wrap').innerHTML = html;
+}
+
+function renderSummary(categories) {
+  var catColors = {
+    'くりぃむしちゅー': '#f97316',
+    'ミセスグリーンアップル': '#c084fc',
+    'サッカー日本代表': '#60a5fa',
+    '歌番組': '#f472b6',
+    'お笑いネタ番組': '#fbbf24',
+  };
+  var html = Object.keys(categories).map(function(cat) {
+    return '<div class="summary-item ' + escHtml(cat) + '">' +
+      '<div class="cnt">' + categories[cat] + '</div>' +
+      '<div class="lbl">' + escHtml(cat) + '</div>' +
+    '</div>';
+  }).join('');
+  document.getElementById('summary-bar').innerHTML = html;
+}
+
+// Load data
+fetch('tv_data.json?_=' + Date.now())
+  .then(function(r) {
+    if (!r.ok) throw new Error('tv_data.json が見つかりません');
+    return r.json();
+  })
+  .then(function(data) {
+    ALL_PROGRAMS = data.programs || [];
+    document.getElementById('updated-label').textContent = '更新: ' + (data.updated || '-');
+    if (data.categories) renderSummary(data.categories);
+    render();
+  })
+  .catch(function(e) {
+    document.getElementById('content-wrap').innerHTML =
+      '<div class="no-data-box">' +
+      '📭 番組データがまだありません<br><br>' +
+      'まず以下のスクリプトを実行してください：<br><br>' +
+      '<code>python tv_updater.py</code><br><br>' +
+      'その後このページを再読み込みしてください。<br><br>' +
+      '<small style="color:var(--muted)">エラー: ' + escHtml(e.message) + '</small>' +
+      '</div>';
+  });
+</script>
+</body>
+</html>
